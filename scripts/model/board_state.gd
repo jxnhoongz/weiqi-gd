@@ -38,3 +38,7 @@ func with_point(x: int, y: int, color: int) -> BoardState:
 	var copy := _cells.duplicate()
 	copy[y * SIZE + x] = color
 	return BoardState.new(copy)
+
+## True if `other` has the exact same stones in the same places.
+func equals(other: BoardState) -> bool:
+	return _cells == other._cells
