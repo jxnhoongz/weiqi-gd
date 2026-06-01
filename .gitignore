@@ -5,5 +5,6 @@
 # Brainstorming visual companion
 .superpowers/
 
-# GUT test framework (dev dependency — install: git clone https://github.com/bitwes/Gut.git, copy addons/gut)
+# GUT test framework (dev dependency, Godot 4.4 needs v9.4.0):
+#   git clone --depth 1 --branch v9.4.0 https://github.com/bitwes/Gut.git /tmp/gut && cp -r /tmp/gut/addons/gut addons/gut
 /addons/gut/
