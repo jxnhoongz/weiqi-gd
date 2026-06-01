@@ -103,8 +103,11 @@ func _try_place(x: int, y: int) -> void:
 		return
 	if not _state.is_empty(x, y):
 		return
-	_state = _state.with_point(x, y, _current_color)
+	var result := GoRules.place(_state, x, y, _current_color)
+	_state = result["state"]
 	_add_stone_sprite(x, y, _current_color)
+	for captured in result["captured"]:
+		_remove_stone_sprite(captured.x, captured.y)
 	_current_color = BoardState.Point.WHITE if _current_color == BoardState.Point.BLACK else BoardState.Point.BLACK
 
 func _add_stone_sprite(x: int, y: int, color: int) -> void:
