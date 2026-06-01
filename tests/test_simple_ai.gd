@@ -5,8 +5,8 @@ const WHITE := BoardState.Point.WHITE
 
 func test_no_move_when_board_is_full() -> void:
 	var s := BoardState.empty()
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in BoardState.DEFAULT_SIZE:
+		for x in BoardState.DEFAULT_SIZE:
 			s = s.with_point(x, y, BLACK)
 	assert_eq(SimpleAI.choose_move(s, WHITE), SimpleAI.NO_MOVE)
 

@@ -11,8 +11,8 @@ func test_returns_a_legal_move_on_empty_board() -> void:
 
 func test_no_move_when_board_is_full() -> void:
 	var s := BoardState.empty()
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in BoardState.DEFAULT_SIZE:
+		for x in BoardState.DEFAULT_SIZE:
 			s = s.with_point(x, y, BLACK)
 	assert_eq(MctsAI.choose_move(s, WHITE, 0, 0, null, 40), MctsAI.NO_MOVE)
 

@@ -10,8 +10,8 @@ const NO_MOVE := Vector2i(-1, -1)
 static func choose_move(state: BoardState, color: int, ko_forbidden: BoardState = null) -> Vector2i:
 	var best_score := -1
 	var best_moves: Array[Vector2i] = []
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in state.size:
+		for x in state.size:
 			if not state.is_empty(x, y):
 				continue
 			var result := GoRules.place(state, x, y, color, ko_forbidden)

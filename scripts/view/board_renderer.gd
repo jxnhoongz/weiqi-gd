@@ -66,6 +66,7 @@ const SNAP_SFX_PATH := "res://assets/audio/snap.mp3"
 var _texture: Texture2D
 var _snap_player: AudioStreamPlayer  # plays the "snap" sfx on stone placement
 var _state: BoardState
+var _board_size: int = BoardState.DEFAULT_SIZE
 var _current_color: int = BoardState.Point.BLACK
 var _mode: int = Mode.NONE
 # Board position just before the last move — what a ko (打劫) recapture would recreate.
@@ -100,14 +101,14 @@ func _ready() -> void:
 # --- Board painting --------------------------------------------------------
 
 func _paint_board() -> void:
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in _board_size:
+		for x in _board_size:
 			board_layer.set_cell(Vector2i(x, y), SOURCE_ID, _board_tile(x, y))
 
 func _board_tile(x: int, y: int) -> Vector2i:
 	if Vector2i(x, y) in STAR_POINTS:
 		return TILE_STAR
-	var last := BoardState.SIZE - 1
+	var last := _board_size - 1
 	var left := x == 0
 	var right := x == last
 	var top := y == 0

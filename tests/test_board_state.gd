@@ -2,8 +2,8 @@ extends GutTest
 
 func test_empty_board_is_all_empty() -> void:
 	var b := BoardState.empty()
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in BoardState.DEFAULT_SIZE:
+		for x in BoardState.DEFAULT_SIZE:
 			assert_eq(b.get_point(x, y), BoardState.Point.EMPTY)
 
 func test_with_point_sets_color() -> void:

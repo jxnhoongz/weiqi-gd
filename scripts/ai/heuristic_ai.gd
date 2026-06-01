@@ -24,8 +24,8 @@ static func choose_move(state: BoardState, color: int, ko_forbidden: BoardState 
 	var my_atari_before := _atari_group_count(state, color)
 	var best_score := -INF
 	var best_moves: Array[Vector2i] = []
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in state.size:
+		for x in state.size:
 			if not state.is_empty(x, y):
 				continue
 			var result := GoRules.place(state, x, y, color, ko_forbidden)
@@ -59,8 +59,8 @@ static func choose_move(state: BoardState, color: int, ko_forbidden: BoardState 
 static func _atari_group_count(state: BoardState, color: int) -> int:
 	var seen := {}
 	var count := 0
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in state.size:
+		for x in state.size:
 			if state.get_point(x, y) != color:
 				continue
 			var key := Vector2i(x, y)

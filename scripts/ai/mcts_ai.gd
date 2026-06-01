@@ -147,8 +147,8 @@ static func _rollout(node: SearchNode) -> int:
 ## full scan if random sampling keeps missing (board nearly full).
 static func _rollout_move(state: BoardState, color: int, ko) -> Vector2i:
 	for _t in ROLLOUT_SAMPLE_TRIES:
-		var x := randi() % BoardState.SIZE
-		var y := randi() % BoardState.SIZE
+		var x := randi() % state.size
+		var y := randi() % state.size
 		if state.is_empty(x, y) and GoRules.place(state, x, y, color, ko)["ok"]:
 			return Vector2i(x, y)
 	var moves := _legal_moves(state, color, ko)
@@ -179,8 +179,8 @@ static func _capture_winner(n: SearchNode) -> int:
 
 static func _legal_moves(state: BoardState, color: int, ko) -> Array:
 	var moves: Array = []
-	for y in BoardState.SIZE:
-		for x in BoardState.SIZE:
+	for y in state.size:
+		for x in state.size:
 			if state.is_empty(x, y) and GoRules.place(state, x, y, color, ko)["ok"]:
 				moves.append(Vector2i(x, y))
 	return moves
