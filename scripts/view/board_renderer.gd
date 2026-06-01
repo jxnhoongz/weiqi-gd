@@ -136,8 +136,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _ai_turn() -> void:
 	if _game_over or _current_color != AI_COLOR:
 		return
-	var mv := SimpleAI.choose_move(_state, AI_COLOR, _prev_state)
-	if mv == SimpleAI.NO_MOVE:
+	var mv := MctsAI.choose_move(
+		_state, AI_COLOR,
+		_captures[BoardState.Point.BLACK], _captures[BoardState.Point.WHITE],
+		_prev_state)
+	if mv == MctsAI.NO_MOVE:
 		return  # no legal move for the AI; rare on 9x9
 	_apply_move(mv.x, mv.y, AI_COLOR)
 
