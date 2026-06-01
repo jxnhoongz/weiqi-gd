@@ -24,7 +24,7 @@ const DEFAULT_ITERATIONS := 220
 const MAX_ROLLOUT_DEPTH := 30
 const EXPLORATION := 1.41421356237  # ~sqrt(2), the UCB1 constant
 const ROLLOUT_SAMPLE_TRIES := 40    # rejection-sampling attempts per rollout step
-const TERRITORY_ROLLOUT_DEPTH := 30 # random moves played before scoring a territory rollout
+const TERRITORY_ROLLOUT_DEPTH := 120 # random moves played before scoring a territory rollout (deeper = better signal)
 
 ## One node of the search tree (a position + MCTS stats). No parent pointer.
 class SearchNode:

@@ -120,6 +120,29 @@ func test_legal_move_reports_ok_true() -> void:
 	assert_true(result["ok"])
 	assert_eq(result["reason"], "")
 
+func test_captures_single_corner_stone_on_19x19() -> void:
+	# White in the bottom-right corner (18,18) with black on one liberty (17,18);
+	# black plays the other liberty (18,17) -> white has 0 liberties -> captured.
+	var s := BoardState.empty(19)
+	s = s.with_point(18, 18, WHITE)
+	s = s.with_point(17, 18, BLACK)
+	var result := GoRules.place(s, 18, 17, BLACK)
+	assert_eq(result["captured"].size(), 1, "corner stone with both liberties filled must be captured")
+	assert_eq(result["state"].get_point(18, 18), EMPTY)
+
+func test_captures_two_stone_corner_group_on_19x19() -> void:
+	# White corner group (18,18)+(18,17); its 3 liberties are (17,18),(17,17),(18,16).
+	# Black fills two, then plays (18,16) -> both white stones captured.
+	var s := BoardState.empty(19)
+	s = s.with_point(18, 18, WHITE)
+	s = s.with_point(18, 17, WHITE)
+	s = s.with_point(17, 18, BLACK)
+	s = s.with_point(17, 17, BLACK)
+	var result := GoRules.place(s, 18, 16, BLACK)
+	assert_eq(result["captured"].size(), 2, "both corner stones should die")
+	assert_eq(result["state"].get_point(18, 18), EMPTY)
+	assert_eq(result["state"].get_point(18, 17), EMPTY)
+
 func test_captures_a_bottom_edge_group_on_19x19() -> void:
 	# A 3-stone white group along the bottom edge of a 19x19 board, surrounded by
 	# black on every liberty except (8,18); Black plays (8,18) -> all 3 captured.
