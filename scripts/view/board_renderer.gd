@@ -47,7 +47,15 @@ const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
 
 @onready var board_layer: TileMapLayer = $BoardLayer
 @onready var stones: Node2D = $Stones
-@onready var status_label: Label = $HUD/StatusLabel
+# Top bar
+@onready var black_label: Label = $HUD/TopBar/Margin/Row/BlackLabel
+@onready var turn_label: Label = $HUD/TopBar/Margin/Row/TurnLabel
+@onready var white_label: Label = $HUD/TopBar/Margin/Row/WhiteLabel
+# Win panel
+@onready var win_overlay: CenterContainer = $HUD/WinOverlay
+@onready var result_label: Label = $HUD/WinOverlay/WinPanel/WinMargin/WinBox/ResultLabel
+@onready var score_label: Label = $HUD/WinOverlay/WinPanel/WinMargin/WinBox/ScoreLabel
+@onready var restart_button: Button = $HUD/WinOverlay/WinPanel/WinMargin/WinBox/RestartButton
 
 var _texture: Texture2D
 var _state: BoardState
@@ -70,6 +78,9 @@ func _ready() -> void:
 	board_layer.tile_set = TilesetBuilder.build(_texture)
 	_state = BoardState.empty()
 	_paint_board()
+	# Run _reset() when the Play again button is clicked. `.pressed` is the
+	# button's signal; `.connect()` wires it to our function.
+	restart_button.pressed.connect(_on_restart_pressed)
 	_update_status()
 
 func _paint_board() -> void:
@@ -160,16 +171,25 @@ func _opponent(color: int) -> int:
 	return BoardState.Point.WHITE if color == BoardState.Point.BLACK else BoardState.Point.BLACK
 
 func _update_status() -> void:
-	if status_label == null:
-		return
+	if black_label == null:
+		return  # nodes not ready yet
 	var b: int = _captures[BoardState.Point.BLACK]
 	var w: int = _captures[BoardState.Point.WHITE]
+	black_label.text = "Black (You)  %d / %d" % [b, WIN_CAPTURES]
+	white_label.text = "White (AI)  %d / %d" % [w, WIN_CAPTURES]
 	if _game_over:
-		var winner := "Black" if b >= WIN_CAPTURES else "White"
-		status_label.text = "%s wins! (提3子)  Black %d · White %d   —   press R to restart" % [winner, b, w]
+		turn_label.text = "Game over"
+		var human_won := b >= WIN_CAPTURES
+		result_label.text = "Black (You) win! 提3子" if human_won else "White (AI) wins! 提3子"
+		score_label.text = "Black %d · White %d" % [b, w]
+		win_overlay.visible = true
 	else:
-		var turn := "Black" if _current_color == BoardState.Point.BLACK else "White"
-		status_label.text = "Turn: %s   ·   Captures — Black %d / White %d" % [turn, b, w]
+		turn_label.text = "Your turn" if _current_color == HUMAN_COLOR else "AI's turn"
+		win_overlay.visible = false
+
+## Called when the on-screen "Play again" button is pressed.
+func _on_restart_pressed() -> void:
+	_reset()
 
 func _reset() -> void:
 	for key in _stone_sprites.keys():
