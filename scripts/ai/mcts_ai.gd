@@ -1,3 +1,10 @@
+## PARKED / not the active AI. Kept as a tested experiment. Vanilla random-rollout
+## MCTS plays the capture-race poorly: on a 9x9 board random play almost never
+## reaches "3 captures" within the rollout depth, so ~90% of rollouts are draws
+## (no signal) and it defaults to expansion order (bottom-right corner). To revive
+## it, give it capture/atari-aware rollouts + a position evaluation (e.g. reuse
+## HeuristicAI as the rollout policy). The game uses HeuristicAI instead.
+##
 ## Monte Carlo Tree Search opponent for the capture-race (first to WIN_CAPTURES
 ## captures wins, 提3子). Pure GDScript — no external dependencies, web/itch safe.
 ## Reuses GoRules/GroupAnalysis for legality + capture resolution.
