@@ -15,6 +15,11 @@ hands-on project for learning **pixel-art tilesets** in Godot.
 
 Not Xiangqi (Chinese chess). Stones are placed on line *intersections*; there are no moving pieces.
 
+**9×9 v1 win condition (revised 2026-06-01):** instead of full territory scoring, the first
+player to **capture 3 stones (提3子)** wins, played **vs a simple capture-greedy AI** (human Black,
+AI White). Full territory/area scoring + passing + dead-stone marking are deferred to the future
+19×19 expansion (see §14). This kept v1 fun and finishable without the hardest scoring edge cases.
+
 ### Goals
 - A correct, complete 9×9 Go game: place, capture, ko, suicide-prevention, scoring, winner.
 - A clean separation that makes the rules unit-testable in isolation.
@@ -207,9 +212,11 @@ View/UI verified by running the game via godot-mcp and observing behavior.
    `GoRules` (22/22 GUT), wired into the renderer (captured stones disappear).
 3. **M3 — Legality:** ✅ **DONE (2026-06-01)** — ko + suicide prevention in `GoRules` (verdict
    `{ok, reason, ...}`, 29/29 GUT), enforced in the renderer (illegal clicks ignored).
-4. **M4 — Endgame:** pass → two-pass end → dead-stone marking → area scoring + komi → winner display.
-5. **M5 — Polish:** ghost-stone preview, prisoner-count HUD, result screen. (Theme switcher deferred
-   until a second theme exists.)
+4. **M4 — Capture-race vs AI:** ✅ **DONE (2026-06-01)** — `SimpleAI` (capture-greedy, 33/33 GUT)
+   opponent (human Black, AI White); first to **3 captures wins (提3子)**; HUD status label + R-restart.
+   (Full territory scoring / passing / dead-stone marking deferred to the 19×19 expansion — see §14.)
+5. **M5 — Polish:** ghost-stone hover preview, nicer HUD (capture counters, turn), win/result panel
+   + Restart button, illegal-move feedback. (Theme switcher deferred until a second theme exists.)
 6. **Art track (parallel):** refine the Kaya tileset in Aseprite; add Dusk/Paper themes later.
 
 ---
@@ -244,7 +251,12 @@ Recorded so v1 decisions stay compatible. None of this is implemented in v1.
 - **itch.io distribution.** Godot exports to **HTML5/WebAssembly**, which itch.io hosts directly
   (upload the export as a "HTML5 playable" zip). Keep rendering web-export-friendly (it already is —
   2D TileMaps export cleanly). Desktop exports (mac/win/linux) are also one-click if wanted.
-- **Other niceties** unlocked by the same foundations: AI opponent, move history / undo,
+- **Full territory/area scoring + dead-stone marking** (the original M4): arrives with the **19×19
+  expansion**, replacing the 9×9 "capture 3" win condition. Needs passing → two-pass end → manual
+  dead-stone marking → area score + komi → winner (spec §3–§4 describe the intended design).
+- **Stronger AI:** the current `SimpleAI` only looks one move ahead (capture-greedy). Future:
+  reading ahead, life-and-death awareness, difficulty levels, choosing your color/board size.
+- **Other niceties** unlocked by the same foundations: move history / undo,
   **SGF import-export** (standard Go game format), more board sizes (13×13 / 19×19), theme switcher
   (Dusk/Paper), sound.
 
