@@ -67,3 +67,55 @@ func test_captures_two_separate_groups_with_one_move() -> void:
 	assert_eq(state.get_point(1, 0), EMPTY)
 	assert_eq(state.get_point(0, 1), EMPTY)
 	assert_eq(result["captured"].size(), 2)
+
+func test_suicide_is_illegal() -> void:
+	var s := _b()
+	s = s.with_point(0, 1, WHITE)
+	s = s.with_point(2, 1, WHITE)
+	s = s.with_point(1, 0, WHITE)
+	s = s.with_point(1, 2, WHITE)
+	var result := GoRules.place(s, 1, 1, BLACK)
+	assert_false(result["ok"], "filling your own last liberty with no capture is suicide")
+	assert_eq(result["reason"], "suicide")
+	var state: BoardState = result["state"]
+	assert_eq(state.get_point(1, 1), EMPTY)
+
+func test_capturing_move_that_would_be_suicide_is_legal() -> void:
+	# Black (0,0) is otherwise surrounded, but it captures White (1,0) first, gaining a liberty.
+	var s := _b()
+	s = s.with_point(1, 0, WHITE)
+	s = s.with_point(0, 1, WHITE)
+	s = s.with_point(2, 0, BLACK)
+	s = s.with_point(1, 1, BLACK)
+	var result := GoRules.place(s, 0, 0, BLACK)
+	assert_true(result["ok"], "capturing frees a liberty, so not suicide")
+	assert_true(result["captured"].has(Vector2i(1, 0)))
+
+func test_ko_recapture_is_illegal_and_legal_without_ko_guard() -> void:
+	# Canonical ko around point (2,1):
+	#   col: 0 1 2 3
+	# row0:  . B W .
+	# row1:  B W . W
+	# row2:  . B W .
+	var a := _b()
+	a = a.with_point(1, 0, BLACK)
+	a = a.with_point(0, 1, BLACK)
+	a = a.with_point(1, 2, BLACK)
+	a = a.with_point(1, 1, WHITE)
+	a = a.with_point(2, 0, WHITE)
+	a = a.with_point(3, 1, WHITE)
+	a = a.with_point(2, 2, WHITE)
+	var black_move := GoRules.place(a, 2, 1, BLACK)
+	assert_true(black_move["ok"])
+	assert_true(black_move["captured"].has(Vector2i(1, 1)))
+	var b: BoardState = black_move["state"]
+	var no_guard := GoRules.place(b, 1, 1, WHITE)
+	assert_true(no_guard["ok"])
+	var with_guard := GoRules.place(b, 1, 1, WHITE, a)
+	assert_false(with_guard["ok"], "immediate recapture recreates the prior position")
+	assert_eq(with_guard["reason"], "ko")
+
+func test_legal_move_reports_ok_true() -> void:
+	var result := GoRules.place(_b(), 4, 4, BLACK)
+	assert_true(result["ok"])
+	assert_eq(result["reason"], "")
