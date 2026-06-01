@@ -11,8 +11,15 @@ const SOURCE_ID := 0
 const TILE_PX := 32
 const STONE_SCALE := 1.5
 
-## First player to capture this many stones wins (提3子).
+## First player to capture this many stones wins on 9x9 (提3子).
 const WIN_CAPTURES := 3
+## 19x19 is territory mode; this many MCTS iterations per AI move (kept low —
+## GDScript on a full board is slow, so this trades strength for responsiveness).
+const MCTS_TERR_ITERS := 40
+## Pixels reserved at the top for the wood info strip.
+const STRIP_PX := 52
+## Horizontal margin on each side of the board.
+const BOARD_MARGIN := 14
 
 ## In vs-AI mode the human plays Black (moves first); the AI plays White.
 const HUMAN_COLOR := BoardState.Point.BLACK
@@ -37,11 +44,6 @@ const TILE_STAR := Vector2i(0, 3)
 const STONE_REGION_WHITE := Rect2(32, 96, 32, 32)
 const STONE_REGION_BLACK := Rect2(64, 96, 32, 32)
 
-# 9x9 star points (0-indexed): the four 3-3 points and the center (天元).
-const STAR_POINTS: Array[Vector2i] = [
-	Vector2i(2, 2), Vector2i(6, 2), Vector2i(2, 6), Vector2i(6, 6), Vector2i(4, 4),
-]
-
 const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
 const SNAP_SFX_PATH := "res://assets/audio/snap.mp3"
 
@@ -52,21 +54,25 @@ const SNAP_SFX_PATH := "res://assets/audio/snap.mp3"
 @onready var black_label: Label = $HUD/UIRoot/TopBar/Margin/Row/BlackLabel
 @onready var turn_label: Label = $HUD/UIRoot/TopBar/Margin/Row/TurnLabel
 @onready var white_label: Label = $HUD/UIRoot/TopBar/Margin/Row/WhiteLabel
+@onready var score_button: Button = $HUD/UIRoot/TopBar/Margin/Row/ScoreButton
 # Win panel
 @onready var win_overlay: CenterContainer = $HUD/UIRoot/WinOverlay
 @onready var result_label: Label = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/ResultLabel
 @onready var score_label: Label = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/ScoreLabel
 @onready var restart_button: Button = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/RestartButton
 @onready var menu_button: Button = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/MenuButton
-# Title menu
+# Title menu (size × mode)
 @onready var menu_overlay: CenterContainer = $HUD/UIRoot/MenuOverlay
-@onready var play_ai_button: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/PlayAiButton
-@onready var play_pvp_button: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/PlayPvpButton
+@onready var btn_9_ai: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/Btn9AI
+@onready var btn_9_pvp: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/Btn9Pvp
+@onready var btn_19_ai: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/Btn19AI
+@onready var btn_19_pvp: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/Btn19Pvp
 
 var _texture: Texture2D
 var _snap_player: AudioStreamPlayer  # plays the "snap" sfx on stone placement
 var _state: BoardState
 var _board_size: int = BoardState.DEFAULT_SIZE
+var _stars: Dictionary = {}  # set of star-point coords for the current size
 var _current_color: int = BoardState.Point.BLACK
 var _mode: int = Mode.NONE
 # Board position just before the last move — what a ko (打劫) recapture would recreate.
@@ -83,7 +89,9 @@ func _ready() -> void:
 		push_error("Failed to load board texture: %s" % BOARD_TEXTURE_PATH)
 		return
 	board_layer.tile_set = TilesetBuilder.build(_texture)
-	_paint_board()
+	# Re-fit the board whenever the window is resized.
+	get_viewport().size_changed.connect(_rescale_board)
+	_apply_board_size(BoardState.DEFAULT_SIZE)
 	# Audio: a non-positional player for the stone-placement "snap".
 	_snap_player = AudioStreamPlayer.new()
 	_snap_player.stream = load(SNAP_SFX_PATH)
@@ -91,9 +99,12 @@ func _ready() -> void:
 	ui_root.theme = _build_ui_theme()
 	# Gold accent for the turn indicator (overrides the cream Label colour).
 	turn_label.add_theme_color_override("font_color", Color(0.91, 0.75, 0.49))
-	# Wire the buttons' `pressed` signals to handler functions.
-	play_ai_button.pressed.connect(func() -> void: _start_game(Mode.VS_AI))
-	play_pvp_button.pressed.connect(func() -> void: _start_game(Mode.VS_PLAYER))
+	# Wire the menu / score / win buttons.
+	btn_9_ai.pressed.connect(func() -> void: _start_game(Mode.VS_AI, 9))
+	btn_9_pvp.pressed.connect(func() -> void: _start_game(Mode.VS_PLAYER, 9))
+	btn_19_ai.pressed.connect(func() -> void: _start_game(Mode.VS_AI, 19))
+	btn_19_pvp.pressed.connect(func() -> void: _start_game(Mode.VS_PLAYER, 19))
+	score_button.pressed.connect(_on_score_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
 	menu_button.pressed.connect(_show_menu)
 	_show_menu()
@@ -106,7 +117,7 @@ func _paint_board() -> void:
 			board_layer.set_cell(Vector2i(x, y), SOURCE_ID, _board_tile(x, y))
 
 func _board_tile(x: int, y: int) -> Vector2i:
-	if Vector2i(x, y) in STAR_POINTS:
+	if _stars.has(Vector2i(x, y)):
 		return TILE_STAR
 	var last := _board_size - 1
 	var left := x == 0
@@ -131,6 +142,44 @@ func _board_tile(x: int, y: int) -> Vector2i:
 		return TILE_R
 	return TILE_C
 
+## Star points (星位) for a board size, 0-indexed. 9x9 marks the 4 corners + 天元;
+## 19x19 marks all nine (lines 4/10/16). Other sizes: just the centre.
+func _star_points(size: int) -> Array:
+	if size == 19:
+		var pts: Array = []
+		for ay in [3, 9, 15]:
+			for ax in [3, 9, 15]:
+				pts.append(Vector2i(ax, ay))
+		return pts
+	if size == 9:
+		return [Vector2i(2, 2), Vector2i(6, 2), Vector2i(2, 6), Vector2i(6, 6), Vector2i(4, 4)]
+	@warning_ignore("integer_division")
+	return [Vector2i(size / 2, size / 2)]
+
+## Set the board size: rescale/position the board to fit under the strip, cache
+## its star points, and repaint the grid.
+func _apply_board_size(size: int) -> void:
+	_board_size = size
+	_stars = {}
+	for p in _star_points(size):
+		_stars[p] = true
+	board_layer.clear()
+	_paint_board()
+	_rescale_board()
+
+## Fit the board to the current window: as large as possible within the space
+## below the strip, centred horizontally. Re-run whenever the window resizes, so
+## you can drag the window bigger and the board grows with it. Stone sprites are
+## children of the Board node, so they rescale automatically.
+func _rescale_board() -> void:
+	var win := get_viewport_rect().size
+	var avail_w := win.x - 2.0 * BOARD_MARGIN
+	var avail_h := win.y - STRIP_PX - BOARD_MARGIN
+	var board_px := _board_size * TILE_PX
+	var s := minf(avail_w, avail_h) / float(board_px)
+	scale = Vector2(s, s)
+	position = Vector2((win.x - board_px * s) / 2.0, STRIP_PX)
+
 ## Which pixel rectangle of the atlas holds the stone for `color`.
 static func stone_region(color: int) -> Rect2:
 	return STONE_REGION_BLACK if color == BoardState.Point.BLACK else STONE_REGION_WHITE
@@ -144,7 +193,9 @@ func _show_menu() -> void:
 	win_overlay.visible = false
 	_update_status()
 
-func _start_game(mode: int) -> void:
+func _start_game(mode: int, size: int) -> void:
+	if size != _board_size:
+		_apply_board_size(size)
 	_reset_board_state()
 	_mode = mode
 	menu_overlay.visible = false
@@ -152,13 +203,17 @@ func _start_game(mode: int) -> void:
 	_update_status()
 
 func _on_restart_pressed() -> void:
-	_start_game(_mode)  # replay the same mode
+	_start_game(_mode, _board_size)  # replay the same mode + size
+
+## True for the territory win condition (19x19); false for the 9x9 capture race.
+func _is_territory() -> bool:
+	return _board_size >= 19
 
 func _reset_board_state() -> void:
 	for key in _stone_sprites.keys():
 		_stone_sprites[key].queue_free()
 	_stone_sprites.clear()
-	_state = BoardState.empty()
+	_state = BoardState.empty(_board_size)
 	_prev_state = null
 	_current_color = BoardState.Point.BLACK
 	_captures = {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
@@ -184,9 +239,16 @@ func _unhandled_input(event: InputEvent) -> void:
 func _ai_turn() -> void:
 	if _mode != Mode.VS_AI or _game_over or _current_color != AI_COLOR:
 		return
-	var mv := HeuristicAI.choose_move(_state, AI_COLOR, _prev_state)
-	if mv == HeuristicAI.NO_MOVE:
-		return  # no legal move for the AI; rare on 9x9
+	var mv: Vector2i
+	if _is_territory():
+		# 19x19: Monte Carlo Tree Search with the territory objective (slow — see note).
+		mv = MctsAI.choose_move(_state, AI_COLOR, _captures[BoardState.Point.BLACK],
+			_captures[BoardState.Point.WHITE], _prev_state, MCTS_TERR_ITERS, true)
+	else:
+		# 9x9: fast tactical heuristic for the capture race.
+		mv = HeuristicAI.choose_move(_state, AI_COLOR, _prev_state)
+	if mv == Vector2i(-1, -1):
+		return  # no legal move for the AI
 	_apply_move(mv.x, mv.y, AI_COLOR)
 
 ## Applies a move for `color` if legal. Returns true if a stone was placed.
@@ -208,12 +270,21 @@ func _apply_move(x: int, y: int, color: int) -> bool:
 		_remove_stone_sprite(c.x, c.y)
 	_captures[color] += captured.size()
 	_prev_state = position_before_move
-	if _captures[color] >= WIN_CAPTURES:
+	# 9x9 ends automatically at 3 captures; 19x19 (territory) ends only when the
+	# player presses "Score".
+	if not _is_territory() and _captures[color] >= WIN_CAPTURES:
 		_game_over = true
 	else:
 		_current_color = _opponent(color)
 	_update_status()
 	return true
+
+## Player pressed "Score" (territory mode): end the game and count area.
+func _on_score_pressed() -> void:
+	if _mode == Mode.NONE or _game_over:
+		return
+	_game_over = true
+	_update_status()
 
 func _opponent(color: int) -> int:
 	return BoardState.Point.WHITE if color == BoardState.Point.BLACK else BoardState.Point.BLACK
@@ -226,20 +297,35 @@ func _update_status() -> void:
 	var b: int = _captures[BoardState.Point.BLACK]
 	var w: int = _captures[BoardState.Point.WHITE]
 	var vs_ai := _mode == Mode.VS_AI
+	var territory := _is_territory()
 	var black_name := "Black (You)" if vs_ai else "Black"
 	var white_name := "White (AI)" if vs_ai else "White"
-	black_label.text = "%s  %d / %d" % [black_name, b, WIN_CAPTURES]
-	white_label.text = "%s  %d / %d" % [white_name, w, WIN_CAPTURES]
+	if territory:
+		black_label.text = black_name
+		white_label.text = white_name
+	else:
+		black_label.text = "%s  %d / %d" % [black_name, b, WIN_CAPTURES]
+		white_label.text = "%s  %d / %d" % [white_name, w, WIN_CAPTURES]
+	score_button.visible = territory and _mode != Mode.NONE and not _game_over
+
 	if _game_over:
 		turn_label.text = "Game over"
-		var black_won := b >= WIN_CAPTURES
-		if vs_ai:
-			result_label.text = "You win! 提3子" if black_won else "AI wins! 提3子"
-		else:
-			result_label.text = "Black wins! 提3子" if black_won else "White wins! 提3子"
-		score_label.text = "Black %d · White %d" % [b, w]
 		win_overlay.visible = true
+		if territory:
+			var a := Scoring.area(_state)
+			var ba: int = a["black"]
+			var wa: int = a["white"]
+			result_label.text = _territory_result_text(ba, wa, vs_ai)
+			score_label.text = "Black %d · White %d   (area)" % [ba, wa]
+		else:
+			var black_won := b >= WIN_CAPTURES
+			if vs_ai:
+				result_label.text = "You win! 提3子" if black_won else "AI wins! 提3子"
+			else:
+				result_label.text = "Black wins! 提3子" if black_won else "White wins! 提3子"
+			score_label.text = "Black %d · White %d" % [b, w]
 		return
+
 	win_overlay.visible = false
 	if _mode == Mode.NONE:
 		turn_label.text = ""
@@ -247,6 +333,14 @@ func _update_status() -> void:
 		turn_label.text = "Your turn" if _current_color == HUMAN_COLOR else "AI to move"
 	else:
 		turn_label.text = "Black to move" if _current_color == BoardState.Point.BLACK else "White to move"
+
+func _territory_result_text(ba: int, wa: int, vs_ai: bool) -> String:
+	if ba == wa:
+		return "Tie — equal territory"
+	var black_more := ba > wa
+	if vs_ai:
+		return "You win by territory!" if black_more else "AI wins by territory"
+	return "Black wins by territory!" if black_more else "White wins by territory!"
 
 # --- Stones (sprites) -------------------------------------------------------
 

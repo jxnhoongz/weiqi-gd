@@ -119,3 +119,31 @@ func test_legal_move_reports_ok_true() -> void:
 	var result := GoRules.place(_b(), 4, 4, BLACK)
 	assert_true(result["ok"])
 	assert_eq(result["reason"], "")
+
+func test_captures_a_bottom_edge_group_on_19x19() -> void:
+	# A 3-stone white group along the bottom edge of a 19x19 board, surrounded by
+	# black on every liberty except (8,18); Black plays (8,18) -> all 3 captured.
+	var s := BoardState.empty(19)
+	s = s.with_point(5, 18, WHITE)
+	s = s.with_point(6, 18, WHITE)
+	s = s.with_point(7, 18, WHITE)
+	s = s.with_point(4, 18, BLACK)
+	s = s.with_point(5, 17, BLACK)
+	s = s.with_point(6, 17, BLACK)
+	s = s.with_point(7, 17, BLACK)
+	var result := GoRules.place(s, 8, 18, BLACK)
+	assert_eq(result["captured"].size(), 3, "the whole bottom-edge group should die at once")
+
+func test_adjacent_white_with_its_own_liberty_survives() -> void:
+	# A (5,18)-(6,18) white group, plus a SEPARATE white at (8,18). Capturing the
+	# 2-stone group must NOT remove the separate stone (it still has liberties).
+	var s := BoardState.empty(19)
+	s = s.with_point(5, 18, WHITE)
+	s = s.with_point(6, 18, WHITE)
+	s = s.with_point(8, 18, WHITE)
+	s = s.with_point(4, 18, BLACK)
+	s = s.with_point(5, 17, BLACK)
+	s = s.with_point(6, 17, BLACK)
+	var result := GoRules.place(s, 7, 18, BLACK)
+	assert_eq(result["captured"].size(), 2, "only the surrounded group dies")
+	assert_eq(result["state"].get_point(8, 18), WHITE, "separate stone with a liberty survives")

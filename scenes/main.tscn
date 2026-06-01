@@ -18,6 +18,8 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
 [node name="TopBar" type="PanelContainer" parent="HUD/UIRoot"]
@@ -62,6 +64,11 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "White  0 / 3"
+
+[node name="ScoreButton" type="Button" parent="HUD/UIRoot/TopBar/Margin/Row"]
+visible = false
+layout_mode = 2
+text = "Score 数子"
 
 [node name="WinOverlay" type="CenterContainer" parent="HUD/UIRoot"]
 visible = false
@@ -141,13 +148,21 @@ horizontal_alignment = 1
 [node name="SubLabel" type="Label" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
-text = "first to capture 3 stones wins"
+text = "9×9 — capture 3 to win    ·    19×19 — most territory wins"
 horizontal_alignment = 1
 
-[node name="PlayAiButton" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+[node name="Btn9AI" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
 layout_mode = 2
-text = "Play vs AI"
+text = "9×9  ·  vs AI"
 
-[node name="PlayPvpButton" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+[node name="Btn9Pvp" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
 layout_mode = 2
-text = "Play vs Player"
+text = "9×9  ·  vs Player"
+
+[node name="Btn19AI" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+layout_mode = 2
+text = "19×19  ·  vs AI"
+
+[node name="Btn19Pvp" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+layout_mode = 2
+text = "19×19  ·  vs Player"
