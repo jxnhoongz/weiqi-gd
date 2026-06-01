@@ -84,6 +84,8 @@ var _game_over := false
 var _stone_sprites: Dictionary = {}
 # Background thread for the (slow) 19x19 MCTS search, so the UI doesn't freeze.
 var _ai_thread: Thread = null
+# Transient "Illegal move" message, created in code.
+var _toast: Label
 
 func _ready() -> void:
 	_texture = load(BOARD_TEXTURE_PATH)
@@ -101,6 +103,7 @@ func _ready() -> void:
 	ui_root.theme = _build_ui_theme()
 	# Gold accent for the turn indicator (overrides the cream Label colour).
 	turn_label.add_theme_color_override("font_color", Color(0.91, 0.75, 0.49))
+	_build_toast()
 	# Wire the menu / score / win buttons.
 	btn_9_ai.pressed.connect(func() -> void: _start_game(Mode.VS_AI, 9))
 	btn_9_pvp.pressed.connect(func() -> void: _start_game(Mode.VS_PLAYER, 9))
@@ -234,8 +237,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _mode == Mode.VS_AI and _current_color != HUMAN_COLOR:
 			return
 		var cell := board_layer.local_to_map(board_layer.get_local_mouse_position())
-		if _apply_move(cell.x, cell.y, _current_color) and not _game_over and _mode == Mode.VS_AI:
-			_ai_turn()
+		var reason := _apply_move(cell.x, cell.y, _current_color)
+		if reason == "":
+			if not _game_over and _mode == Mode.VS_AI:
+				_ai_turn()
+		else:
+			_flash_illegal(reason)
 
 ## The AI (White) picks and plays its best move after the human moves.
 func _ai_turn() -> void:
@@ -281,17 +288,18 @@ func _exit_tree() -> void:
 		_ai_thread.wait_to_finish()
 		_ai_thread = null
 
-## Applies a move for `color` if legal. Returns true if a stone was placed.
-func _apply_move(x: int, y: int, color: int) -> bool:
+## Applies a move for `color` if legal. Returns "" on success, otherwise a reason
+## the move was rejected: "over" / "out" / "occupied" / "suicide" / "ko".
+func _apply_move(x: int, y: int, color: int) -> String:
 	if _game_over:
-		return false
+		return "over"
 	if not _state.in_bounds(x, y):
-		return false
+		return "out"
 	if not _state.is_empty(x, y):
-		return false
+		return "occupied"
 	var result := GoRules.place(_state, x, y, color, _prev_state)
 	if not result["ok"]:
-		return false
+		return result["reason"]  # "suicide" or "ko"
 	var position_before_move := _state
 	_state = result["state"]
 	_add_stone_sprite(x, y, color)
@@ -307,7 +315,38 @@ func _apply_move(x: int, y: int, color: int) -> bool:
 	else:
 		_current_color = _opponent(color)
 	_update_status()
-	return true
+	return ""
+
+## A red toast just below the strip, hidden until a move is rejected.
+func _build_toast() -> void:
+	_toast = Label.new()
+	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_toast.offset_top = STRIP_PX + 8
+	_toast.offset_bottom = STRIP_PX + 44
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.add_theme_font_size_override("font_size", 20)
+	_toast.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5))
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.modulate.a = 0.0
+	ui_root.add_child(_toast)
+
+## Briefly show why a click didn't place a stone, then fade out.
+func _flash_illegal(reason: String) -> void:
+	var msg := ""
+	match reason:
+		"suicide":
+			msg = "Illegal — suicide (自杀)"
+		"ko":
+			msg = "Illegal — ko (打劫)"
+		"occupied":
+			msg = "There's already a stone there"
+		_:
+			return
+	_toast.text = msg
+	_toast.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(0.7)
+	tw.tween_property(_toast, "modulate:a", 0.0, 0.5)
 
 ## Player pressed "Score" (territory mode): end the game and count area.
 func _on_score_pressed() -> void:
