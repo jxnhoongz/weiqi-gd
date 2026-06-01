@@ -26,3 +26,11 @@ func test_takes_the_immediate_winning_capture() -> void:
 	s = s.with_point(1, 0, BLACK)
 	var mv := MctsAI.choose_move(s, BLACK, 2, 2, null, 600)
 	assert_eq(mv, Vector2i(0, 1), "MCTS should grab the move that wins the game now")
+
+func test_territory_mode_returns_a_legal_move_on_19x19() -> void:
+	# Smoke test: the territory objective runs on a full-size board and returns a
+	# legal move (few iterations to keep the test fast).
+	var s := BoardState.empty(19)
+	var mv := MctsAI.choose_move(s, BLACK, 0, 0, null, 8, true)
+	assert_ne(mv, MctsAI.NO_MOVE)
+	assert_true(GoRules.place(s, mv.x, mv.y, BLACK)["ok"])

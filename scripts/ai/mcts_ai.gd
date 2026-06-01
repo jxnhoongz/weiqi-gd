@@ -24,6 +24,7 @@ const DEFAULT_ITERATIONS := 220
 const MAX_ROLLOUT_DEPTH := 30
 const EXPLORATION := 1.41421356237  # ~sqrt(2), the UCB1 constant
 const ROLLOUT_SAMPLE_TRIES := 40    # rejection-sampling attempts per rollout step
+const TERRITORY_ROLLOUT_DEPTH := 30 # random moves played before scoring a territory rollout
 
 ## One node of the search tree (a position + MCTS stats). No parent pointer.
 class SearchNode:
@@ -49,15 +50,17 @@ class SearchNode:
 
 ## Returns the AI's chosen move for `color`, or NO_MOVE if no legal move exists.
 ## cap_black / cap_white are the CURRENT cumulative capture counts (win at WIN_CAPTURES).
-static func choose_move(state: BoardState, color: int, cap_black: int, cap_white: int, ko_forbidden: BoardState = null, iterations: int = DEFAULT_ITERATIONS) -> Vector2i:
+## When `territory` is true, the objective is area control (地盘) scored at the
+## end of a short rollout, instead of the capture-race. Used on the 19x19 board.
+static func choose_move(state: BoardState, color: int, cap_black: int, cap_white: int, ko_forbidden: BoardState = null, iterations: int = DEFAULT_ITERATIONS, territory: bool = false) -> Vector2i:
 	var root := SearchNode.new(state, color, cap_black, cap_white, ko_forbidden, NO_MOVE)
 	root.untried = _legal_moves(state, color, ko_forbidden)
 	if root.untried.is_empty():
 		return NO_MOVE
 	for _i in iterations:
-		var path := _tree_policy(root)
+		var path := _tree_policy(root, territory)
 		var leaf: SearchNode = path[path.size() - 1]
-		var winner := _rollout(leaf)
+		var winner := _rollout(leaf, territory)
 		_backpropagate(path, winner)
 	var best: SearchNode = null
 	for c in root.children:
@@ -68,12 +71,12 @@ static func choose_move(state: BoardState, color: int, cap_black: int, cap_white
 # --- Selection / expansion -------------------------------------------------
 
 ## Descends from root via UCB1, returning the path (root..leaf) to evaluate.
-static func _tree_policy(root: SearchNode) -> Array:
+static func _tree_policy(root: SearchNode, territory: bool) -> Array:
 	var path: Array = [root]
 	var n := root
 	while true:
-		if _capture_winner(n) != -2:
-			return path  # terminal: someone has already won
+		if not territory and _capture_winner(n) != -2:
+			return path  # terminal: someone has already won (capture mode only)
 		if n.untried == null:
 			n.untried = _legal_moves(n.state, n.to_move, n.ko)
 		if not n.untried.is_empty():
@@ -110,7 +113,9 @@ static func _best_uct(n: SearchNode) -> SearchNode:
 
 # --- Rollout ---------------------------------------------------------------
 
-static func _rollout(node: SearchNode) -> int:
+static func _rollout(node: SearchNode, territory: bool) -> int:
+	if territory:
+		return _territory_rollout(node)
 	var w := _capture_winner(node)
 	if w != -2:
 		return w
@@ -142,6 +147,23 @@ static func _rollout(node: SearchNode) -> int:
 	if cw > cb:
 		return BoardState.Point.WHITE
 	return -1  # draw
+
+## Territory objective: play a short random playout, then score area control.
+## Returns BLACK/WHITE for the area leader, or -1 for a tie.
+static func _territory_rollout(node: SearchNode) -> int:
+	var st := node.state
+	var tm := node.to_move
+	var ko = node.ko
+	for _d in TERRITORY_ROLLOUT_DEPTH:
+		var mv := _rollout_move(st, tm, ko)
+		if mv == NO_MOVE:
+			break
+		var result := GoRules.place(st, mv.x, mv.y, tm, ko)
+		ko = st
+		st = result["state"]
+		tm = _opp(tm)
+	var w := Scoring.winner(st)
+	return w if w != BoardState.Point.EMPTY else -1
 
 ## Picks a random legal move via rejection sampling (cheap); falls back to a
 ## full scan if random sampling keeps missing (board nearly full).
