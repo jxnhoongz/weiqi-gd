@@ -20,9 +20,10 @@ Not Xiangqi (Chinese chess). Stones are placed on line *intersections*; there ar
 - A clean separation that makes the rules unit-testable in isolation.
 - A pixel-art pipeline the user (a beginner) can drive: draw tiles in Aseprite → export → see them in-game.
 
-### Non-goals (v1)
+### Non-goals (v1) — local hotseat only
 - AI opponent (hotseat only; AI is a clean later addition).
-- Online / networked play.
+- Online / networked multiplayer (deferred — see §14 Future roadmap).
+- Web distribution / itch.io build (deferred — see §14).
 - Multiple board sizes (9×9 only).
 - More than one art theme shipped (Kaya only now; see §8 — designed to swap, others added later).
 
@@ -53,6 +54,10 @@ Located in `scripts/model/` — no Godot scene dependencies.
   3. Remove any **opponent** groups now at 0 liberties → these are **captures**.
   4. Is the **placed stone's own** group now at 0 liberties? → **suicide → illegal** (revert).
   5. Does the resulting position recreate the **immediately previous** board position? → **ko → illegal**.
+- **`Move`** (forward-compatible decision) — a turn is represented as a small, **serializable action**:
+  `place(x, y)` or `pass`. The controller advances state by applying a `Move`. This costs nothing
+  now but is exactly what **networking** (send moves over the wire), **replay/undo**, and **SGF
+  export** later all require. Keep the model driven by applying `Move`s, never by ad-hoc UI calls.
 - **`Scoring`** — **area scoring (Chinese rules)**:
   `score(color) = (color's stones on board) + (empty territory surrounded only by that color)`,
   **+ komi for White** (default **7**, configurable). Empty regions touching both colors are neutral (dame).
@@ -220,7 +225,25 @@ View/UI verified by running the game via godot-mcp and observing behavior.
 
 ## 13. Notes / open items
 
-- **Git:** project is **not** a git repository yet. Recommend `git init` before implementation so the
-  spec and milestones can be committed (offered to user).
+- **Git:** initialized; `origin` = `git@github.com:jxnhoongz/weiqi-gd.git`, pushed. Commit per milestone.
 - **Tileset alignment:** current `go-board.png` line spacing is close but may be off by ~1px between
   cells; acceptable for M1, refine during the art track.
+
+## 14. Future roadmap (post-v1, not built now)
+
+Recorded so v1 decisions stay compatible. None of this is implemented in v1.
+
+- **Online multiplayer (play with friends).** Two humans, different machines. Godot's high-level
+  multiplayer API (ENet) or a lightweight relay. Enabled cheaply by the `Move`-driven model (§3):
+  the authoritative side applies `Move`s and broadcasts them; clients replay the same `Move`s.
+  Likely approach: host/join via room code, or a small relay server. Turn-based Go is forgiving of
+  latency, so this is very achievable.
+- **itch.io distribution.** Godot exports to **HTML5/WebAssembly**, which itch.io hosts directly
+  (upload the export as a "HTML5 playable" zip). Keep rendering web-export-friendly (it already is —
+  2D TileMaps export cleanly). Desktop exports (mac/win/linux) are also one-click if wanted.
+- **Other niceties** unlocked by the same foundations: AI opponent, move history / undo,
+  **SGF import-export** (standard Go game format), more board sizes (13×13 / 19×19), theme switcher
+  (Dusk/Paper), sound.
+
+Sequencing intent: finish v1 local hotseat → add SGF/replay (proves the `Move` model) →
+online multiplayer → HTML5 export to itch.
