@@ -1,26 +1,25 @@
-## Milestone 1 main scene root: paints the 9x9 board once, then places
-## alternating black/white stones on click. No Go rules yet (no capture/ko).
-##
-## The board is drawn on a TileMapLayer. Stones are drawn as Sprite2D nodes
-## "sliced" from the same atlas via AtlasTexture, so they can be scaled
-## independently of the 32px grid (see STONE_SCALE) and overlap slightly,
-## like real Go stones.
+## Main scene root / game controller.
+## Paints the 9x9 board (pixel tileset), runs a title menu, and plays either
+## Human-vs-AI or Human-vs-Human (hotseat). Win condition: first to capture 3
+## stones (提3子). Stones are Sprite2D nodes sliced from the atlas so they can be
+## scaled past one cell (STONE_SCALE). UI is plain Control nodes + a code-built
+## flat Theme (no pixel art needed for the interface).
 class_name BoardRenderer
 extends Node2D
 
 const SOURCE_ID := 0
 const TILE_PX := 32
-
-## Visual size of stones relative to a grid cell. 1.0 = exactly one cell.
-## Non-integer values (e.g. 1.5) may look slightly uneven; 2.0 is crispest.
 const STONE_SCALE := 1.5
 
-## Custom win condition for the 9x9 game: first to capture this many stones wins (提3子).
+## First player to capture this many stones wins (提3子).
 const WIN_CAPTURES := 3
 
-## The human plays Black (moves first); the AI plays White.
+## In vs-AI mode the human plays Black (moves first); the AI plays White.
 const HUMAN_COLOR := BoardState.Point.BLACK
 const AI_COLOR := BoardState.Point.WHITE
+
+## Which mode the game is in. NONE = the title menu is showing (no play yet).
+enum Mode { NONE, VS_AI, VS_PLAYER }
 
 # Board tile atlas coordinates (col, row) — see spec section 6.
 const TILE_TL := Vector2i(0, 0)
@@ -47,27 +46,32 @@ const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
 
 @onready var board_layer: TileMapLayer = $BoardLayer
 @onready var stones: Node2D = $Stones
+@onready var ui_root: Control = $HUD/UIRoot
 # Top bar
-@onready var black_label: Label = $HUD/TopBar/Margin/Row/BlackLabel
-@onready var turn_label: Label = $HUD/TopBar/Margin/Row/TurnLabel
-@onready var white_label: Label = $HUD/TopBar/Margin/Row/WhiteLabel
+@onready var black_label: Label = $HUD/UIRoot/TopBar/Margin/Row/BlackLabel
+@onready var turn_label: Label = $HUD/UIRoot/TopBar/Margin/Row/TurnLabel
+@onready var white_label: Label = $HUD/UIRoot/TopBar/Margin/Row/WhiteLabel
 # Win panel
-@onready var win_overlay: CenterContainer = $HUD/WinOverlay
-@onready var result_label: Label = $HUD/WinOverlay/WinPanel/WinMargin/WinBox/ResultLabel
-@onready var score_label: Label = $HUD/WinOverlay/WinPanel/WinMargin/WinBox/ScoreLabel
-@onready var restart_button: Button = $HUD/WinOverlay/WinPanel/WinMargin/WinBox/RestartButton
+@onready var win_overlay: CenterContainer = $HUD/UIRoot/WinOverlay
+@onready var result_label: Label = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/ResultLabel
+@onready var score_label: Label = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/ScoreLabel
+@onready var restart_button: Button = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/RestartButton
+@onready var menu_button: Button = $HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox/MenuButton
+# Title menu
+@onready var menu_overlay: CenterContainer = $HUD/UIRoot/MenuOverlay
+@onready var play_ai_button: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/PlayAiButton
+@onready var play_pvp_button: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/PlayPvpButton
 
 var _texture: Texture2D
 var _state: BoardState
 var _current_color: int = BoardState.Point.BLACK
-# The board position just before the last applied move — what a ko (打劫)
-# recapture would illegally recreate. Null until the first move is made.
+var _mode: int = Mode.NONE
+# Board position just before the last move — what a ko (打劫) recapture would recreate.
 var _prev_state: BoardState = null
 # Cumulative captured-stone counts, keyed by the capturing color.
 var _captures := {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
 var _game_over := false
-# Maps a grid coord (Vector2i) to its placed Sprite2D, so stones can be
-# removed when they are captured.
+# Maps a grid coord (Vector2i) to its placed Sprite2D.
 var _stone_sprites: Dictionary = {}
 
 func _ready() -> void:
@@ -76,12 +80,16 @@ func _ready() -> void:
 		push_error("Failed to load board texture: %s" % BOARD_TEXTURE_PATH)
 		return
 	board_layer.tile_set = TilesetBuilder.build(_texture)
-	_state = BoardState.empty()
 	_paint_board()
-	# Run _reset() when the Play again button is clicked. `.pressed` is the
-	# button's signal; `.connect()` wires it to our function.
+	ui_root.theme = _build_ui_theme()
+	# Wire the buttons' `pressed` signals to handler functions.
+	play_ai_button.pressed.connect(func() -> void: _start_game(Mode.VS_AI))
+	play_pvp_button.pressed.connect(func() -> void: _start_game(Mode.VS_PLAYER))
 	restart_button.pressed.connect(_on_restart_pressed)
-	_update_status()
+	menu_button.pressed.connect(_show_menu)
+	_show_menu()
+
+# --- Board painting --------------------------------------------------------
 
 func _paint_board() -> void:
 	for y in BoardState.SIZE:
@@ -118,23 +126,54 @@ func _board_tile(x: int, y: int) -> Vector2i:
 static func stone_region(color: int) -> Rect2:
 	return STONE_REGION_BLACK if color == BoardState.Point.BLACK else STONE_REGION_WHITE
 
+# --- Game flow / modes -----------------------------------------------------
+
+func _show_menu() -> void:
+	_reset_board_state()
+	_mode = Mode.NONE
+	menu_overlay.visible = true
+	win_overlay.visible = false
+	_update_status()
+
+func _start_game(mode: int) -> void:
+	_reset_board_state()
+	_mode = mode
+	menu_overlay.visible = false
+	win_overlay.visible = false
+	_update_status()
+
+func _on_restart_pressed() -> void:
+	_start_game(_mode)  # replay the same mode
+
+func _reset_board_state() -> void:
+	for key in _stone_sprites.keys():
+		_stone_sprites[key].queue_free()
+	_stone_sprites.clear()
+	_state = BoardState.empty()
+	_prev_state = null
+	_current_color = BoardState.Point.BLACK
+	_captures = {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
+	_game_over = false
+
+# --- Input -----------------------------------------------------------------
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
-		_reset()
+	if event is InputEventKey and event.pressed and event.keycode == KEY_R and _mode != Mode.NONE:
+		_on_restart_pressed()
 		return
-	if _game_over:
+	if _mode == Mode.NONE or _game_over:
 		return
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT:
-		if _current_color != HUMAN_COLOR:
+		if _mode == Mode.VS_AI and _current_color != HUMAN_COLOR:
 			return
 		var cell := board_layer.local_to_map(board_layer.get_local_mouse_position())
-		if _apply_move(cell.x, cell.y, HUMAN_COLOR) and not _game_over:
+		if _apply_move(cell.x, cell.y, _current_color) and not _game_over and _mode == Mode.VS_AI:
 			_ai_turn()
 
 ## The AI (White) picks and plays its best move after the human moves.
 func _ai_turn() -> void:
-	if _game_over or _current_color != AI_COLOR:
+	if _mode != Mode.VS_AI or _game_over or _current_color != AI_COLOR:
 		return
 	var mv := HeuristicAI.choose_move(_state, AI_COLOR, _prev_state)
 	if mv == HeuristicAI.NO_MOVE:
@@ -170,37 +209,37 @@ func _apply_move(x: int, y: int, color: int) -> bool:
 func _opponent(color: int) -> int:
 	return BoardState.Point.WHITE if color == BoardState.Point.BLACK else BoardState.Point.BLACK
 
+# --- HUD --------------------------------------------------------------------
+
 func _update_status() -> void:
 	if black_label == null:
 		return  # nodes not ready yet
 	var b: int = _captures[BoardState.Point.BLACK]
 	var w: int = _captures[BoardState.Point.WHITE]
-	black_label.text = "Black (You)  %d / %d" % [b, WIN_CAPTURES]
-	white_label.text = "White (AI)  %d / %d" % [w, WIN_CAPTURES]
+	var vs_ai := _mode == Mode.VS_AI
+	var black_name := "Black (You)" if vs_ai else "Black"
+	var white_name := "White (AI)" if vs_ai else "White"
+	black_label.text = "%s  %d / %d" % [black_name, b, WIN_CAPTURES]
+	white_label.text = "%s  %d / %d" % [white_name, w, WIN_CAPTURES]
 	if _game_over:
 		turn_label.text = "Game over"
-		var human_won := b >= WIN_CAPTURES
-		result_label.text = "Black (You) win! 提3子" if human_won else "White (AI) wins! 提3子"
+		var black_won := b >= WIN_CAPTURES
+		if vs_ai:
+			result_label.text = "You win! 提3子" if black_won else "AI wins! 提3子"
+		else:
+			result_label.text = "Black wins! 提3子" if black_won else "White wins! 提3子"
 		score_label.text = "Black %d · White %d" % [b, w]
 		win_overlay.visible = true
+		return
+	win_overlay.visible = false
+	if _mode == Mode.NONE:
+		turn_label.text = ""
+	elif vs_ai:
+		turn_label.text = "Your turn" if _current_color == HUMAN_COLOR else "AI to move"
 	else:
-		turn_label.text = "Your turn" if _current_color == HUMAN_COLOR else "AI's turn"
-		win_overlay.visible = false
+		turn_label.text = "Black to move" if _current_color == BoardState.Point.BLACK else "White to move"
 
-## Called when the on-screen "Play again" button is pressed.
-func _on_restart_pressed() -> void:
-	_reset()
-
-func _reset() -> void:
-	for key in _stone_sprites.keys():
-		_stone_sprites[key].queue_free()
-	_stone_sprites.clear()
-	_state = BoardState.empty()
-	_prev_state = null
-	_current_color = BoardState.Point.BLACK
-	_captures = {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
-	_game_over = false
-	_update_status()
+# --- Stones (sprites) -------------------------------------------------------
 
 func _add_stone_sprite(x: int, y: int, color: int) -> void:
 	var sprite := Sprite2D.new()
@@ -214,9 +253,44 @@ func _add_stone_sprite(x: int, y: int, color: int) -> void:
 	stones.add_child(sprite)
 	_stone_sprites[Vector2i(x, y)] = sprite
 
-## Removes a placed stone (used when capture lands in a later milestone).
 func _remove_stone_sprite(x: int, y: int) -> void:
 	var key := Vector2i(x, y)
 	if _stone_sprites.has(key):
 		_stone_sprites[key].queue_free()
 		_stone_sprites.erase(key)
+
+# --- UI theme (flat, code-built — no art) ----------------------------------
+
+## Builds one Theme applied to UIRoot; it cascades to all child Controls so the
+## menu, buttons, top bar, and win panel share a consistent flat look.
+func _build_ui_theme() -> Theme:
+	var t := Theme.new()
+	t.set_default_font_size(16)
+
+	var bg := Color(0.16, 0.15, 0.21)
+	var accent := Color(0.79, 0.63, 0.39)
+	var accent_hover := Color(0.86, 0.71, 0.47)
+	var accent_pressed := Color(0.69, 0.54, 0.33)
+	var text := Color(0.93, 0.91, 0.85)
+	var dark_text := Color(0.14, 0.10, 0.05)
+
+	var panel := StyleBoxFlat.new()
+	panel.bg_color = bg
+	panel.set_corner_radius_all(10)
+	panel.set_content_margin_all(6)
+	panel.border_color = Color(1, 1, 1, 0.06)
+	panel.set_border_width_all(1)
+	t.set_stylebox("panel", "PanelContainer", panel)
+
+	for state in {"normal": accent, "hover": accent_hover, "pressed": accent_pressed}:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = {"normal": accent, "hover": accent_hover, "pressed": accent_pressed}[state]
+		sb.set_corner_radius_all(8)
+		sb.set_content_margin_all(10)
+		t.set_stylebox(state, "Button", sb)
+	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	t.set_color("font_color", "Button", dark_text)
+	t.set_color("font_hover_color", "Button", dark_text)
+	t.set_color("font_pressed_color", "Button", dark_text)
+	t.set_color("font_color", "Label", text)
+	return t

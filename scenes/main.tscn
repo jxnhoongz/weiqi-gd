@@ -15,86 +15,123 @@ zoom = Vector2(2, 2)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="TopBar" type="PanelContainer" parent="HUD"]
+[node name="UIRoot" type="Control" parent="HUD"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="TopBar" type="PanelContainer" parent="HUD/UIRoot"]
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 44.0
 mouse_filter = 2
 
-[node name="Margin" type="MarginContainer" parent="HUD/TopBar"]
-layout_mode = 2
+[node name="Margin" type="MarginContainer" parent="HUD/UIRoot/TopBar"]
 mouse_filter = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 6
 
-[node name="Row" type="HBoxContainer" parent="HUD/TopBar/Margin"]
-layout_mode = 2
+[node name="Row" type="HBoxContainer" parent="HUD/UIRoot/TopBar/Margin"]
 mouse_filter = 2
 
-[node name="BlackLabel" type="Label" parent="HUD/TopBar/Margin/Row"]
-layout_mode = 2
+[node name="BlackLabel" type="Label" parent="HUD/UIRoot/TopBar/Margin/Row"]
+mouse_filter = 2
 theme_override_font_sizes/font_size = 16
-text = "Black (You)  0 / 3"
+text = "Black  0 / 3"
 
-[node name="SpacerL" type="Control" parent="HUD/TopBar/Margin/Row"]
-layout_mode = 2
+[node name="SpacerL" type="Control" parent="HUD/UIRoot/TopBar/Margin/Row"]
+mouse_filter = 2
 size_flags_horizontal = 3
+
+[node name="TurnLabel" type="Label" parent="HUD/UIRoot/TopBar/Margin/Row"]
 mouse_filter = 2
-
-[node name="TurnLabel" type="Label" parent="HUD/TopBar/Margin/Row"]
-layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "Your turn"
+text = "Black to move"
 
-[node name="SpacerR" type="Control" parent="HUD/TopBar/Margin/Row"]
-layout_mode = 2
+[node name="SpacerR" type="Control" parent="HUD/UIRoot/TopBar/Margin/Row"]
+mouse_filter = 2
 size_flags_horizontal = 3
+
+[node name="WhiteLabel" type="Label" parent="HUD/UIRoot/TopBar/Margin/Row"]
 mouse_filter = 2
-
-[node name="WhiteLabel" type="Label" parent="HUD/TopBar/Margin/Row"]
-layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "White (AI)  0 / 3"
+text = "White  0 / 3"
 
-[node name="WinOverlay" type="CenterContainer" parent="HUD"]
+[node name="WinOverlay" type="CenterContainer" parent="HUD/UIRoot"]
 visible = false
-anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="WinPanel" type="PanelContainer" parent="HUD/WinOverlay"]
-layout_mode = 2
+[node name="WinPanel" type="PanelContainer" parent="HUD/UIRoot/WinOverlay"]
 mouse_filter = 2
 
-[node name="WinMargin" type="MarginContainer" parent="HUD/WinOverlay/WinPanel"]
-layout_mode = 2
+[node name="WinMargin" type="MarginContainer" parent="HUD/UIRoot/WinOverlay/WinPanel"]
 mouse_filter = 2
 theme_override_constants/margin_left = 28
 theme_override_constants/margin_top = 22
 theme_override_constants/margin_right = 28
 theme_override_constants/margin_bottom = 22
 
-[node name="WinBox" type="VBoxContainer" parent="HUD/WinOverlay/WinPanel/WinMargin"]
-layout_mode = 2
+[node name="WinBox" type="VBoxContainer" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin"]
 mouse_filter = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="ResultLabel" type="Label" parent="HUD/WinOverlay/WinPanel/WinMargin/WinBox"]
-layout_mode = 2
+[node name="ResultLabel" type="Label" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
+mouse_filter = 2
 theme_override_font_sizes/font_size = 24
-text = "Black (You) win!"
+text = "Black wins!"
 horizontal_alignment = 1
 
-[node name="ScoreLabel" type="Label" parent="HUD/WinOverlay/WinPanel/WinMargin/WinBox"]
-layout_mode = 2
+[node name="ScoreLabel" type="Label" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
+mouse_filter = 2
 theme_override_font_sizes/font_size = 15
 text = "Black 3 · White 0"
 horizontal_alignment = 1
 
-[node name="RestartButton" type="Button" parent="HUD/WinOverlay/WinPanel/WinMargin/WinBox"]
-layout_mode = 2
-text = "↺ Play again"
+[node name="RestartButton" type="Button" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
+text = "Play again"
+
+[node name="MenuButton" type="Button" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
+text = "Main menu"
+
+[node name="MenuOverlay" type="CenterContainer" parent="HUD/UIRoot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="MenuPanel" type="PanelContainer" parent="HUD/UIRoot/MenuOverlay"]
+mouse_filter = 2
+
+[node name="MenuMargin" type="MarginContainer" parent="HUD/UIRoot/MenuOverlay/MenuPanel"]
+mouse_filter = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 28
+
+[node name="MenuBox" type="VBoxContainer" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin"]
+mouse_filter = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+mouse_filter = 2
+theme_override_font_sizes/font_size = 30
+text = "Mini Go"
+horizontal_alignment = 1
+
+[node name="SubLabel" type="Label" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14
+text = "first to capture 3 stones wins"
+horizontal_alignment = 1
+
+[node name="PlayAiButton" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+text = "Play vs AI"
+
+[node name="PlayPvpButton" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+text = "Play vs Player"
