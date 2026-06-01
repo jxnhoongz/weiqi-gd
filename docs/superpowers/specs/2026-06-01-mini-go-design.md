@@ -205,7 +205,8 @@ View/UI verified by running the game via godot-mcp and observing behavior.
    `BoardState` + `TilesetBuilder` unit-tested (6/6 GUT). Render/run loop confirmed end-to-end.
 2. **M2 — Capture:** ✅ **DONE (2026-06-01)** — liberties + group capture in `GroupAnalysis` /
    `GoRules` (22/22 GUT), wired into the renderer (captured stones disappear).
-3. **M3 — Legality:** ko + suicide prevention.
+3. **M3 — Legality:** ✅ **DONE (2026-06-01)** — ko + suicide prevention in `GoRules` (verdict
+   `{ok, reason, ...}`, 29/29 GUT), enforced in the renderer (illegal clicks ignored).
 4. **M4 — Endgame:** pass → two-pass end → dead-stone marking → area scoring + komi → winner display.
 5. **M5 — Polish:** ghost-stone preview, prisoner-count HUD, result screen. (Theme switcher deferred
    until a second theme exists.)
