@@ -15,6 +15,9 @@ const TILE_PX := 32
 ## Non-integer values (e.g. 1.5) may look slightly uneven; 2.0 is crispest.
 const STONE_SCALE := 1.5
 
+## Custom win condition for the 9x9 game: first to capture this many stones wins (提3子).
+const WIN_CAPTURES := 3
+
 # Board tile atlas coordinates (col, row) — see spec section 6.
 const TILE_TL := Vector2i(0, 0)
 const TILE_T := Vector2i(1, 0)
@@ -40,6 +43,7 @@ const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
 
 @onready var board_layer: TileMapLayer = $BoardLayer
 @onready var stones: Node2D = $Stones
+@onready var status_label: Label = $HUD/StatusLabel
 
 var _texture: Texture2D
 var _state: BoardState
@@ -47,6 +51,9 @@ var _current_color: int = BoardState.Point.BLACK
 # The board position just before the last applied move — what a ko (打劫)
 # recapture would illegally recreate. Null until the first move is made.
 var _prev_state: BoardState = null
+# Cumulative captured-stone counts, keyed by the capturing color.
+var _captures := {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
+var _game_over := false
 # Maps a grid coord (Vector2i) to its placed Sprite2D, so stones can be
 # removed when they are captured.
 var _stone_sprites: Dictionary = {}
@@ -59,6 +66,7 @@ func _ready() -> void:
 	board_layer.tile_set = TilesetBuilder.build(_texture)
 	_state = BoardState.empty()
 	_paint_board()
+	_update_status()
 
 func _paint_board() -> void:
 	for y in BoardState.SIZE:
@@ -96,26 +104,67 @@ static func stone_region(color: int) -> Rect2:
 	return STONE_REGION_BLACK if color == BoardState.Point.BLACK else STONE_REGION_WHITE
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+		_reset()
+		return
+	if _game_over:
+		return
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT:
 		var cell := board_layer.local_to_map(board_layer.get_local_mouse_position())
-		_try_place(cell.x, cell.y)
+		_apply_move(cell.x, cell.y, _current_color)
 
-func _try_place(x: int, y: int) -> void:
+## Applies a move for `color` if legal. Returns true if a stone was placed.
+func _apply_move(x: int, y: int, color: int) -> bool:
+	if _game_over:
+		return false
 	if not _state.in_bounds(x, y):
-		return
+		return false
 	if not _state.is_empty(x, y):
-		return
-	var result := GoRules.place(_state, x, y, _current_color, _prev_state)
+		return false
+	var result := GoRules.place(_state, x, y, color, _prev_state)
 	if not result["ok"]:
-		return  # illegal (suicide or ko) — ignore the click
+		return false
 	var position_before_move := _state
 	_state = result["state"]
-	_add_stone_sprite(x, y, _current_color)
-	for captured in result["captured"]:
-		_remove_stone_sprite(captured.x, captured.y)
+	_add_stone_sprite(x, y, color)
+	var captured: Array = result["captured"]
+	for c in captured:
+		_remove_stone_sprite(c.x, c.y)
+	_captures[color] += captured.size()
 	_prev_state = position_before_move
-	_current_color = BoardState.Point.WHITE if _current_color == BoardState.Point.BLACK else BoardState.Point.BLACK
+	if _captures[color] >= WIN_CAPTURES:
+		_game_over = true
+	else:
+		_current_color = _opponent(color)
+	_update_status()
+	return true
+
+func _opponent(color: int) -> int:
+	return BoardState.Point.WHITE if color == BoardState.Point.BLACK else BoardState.Point.BLACK
+
+func _update_status() -> void:
+	if status_label == null:
+		return
+	var b: int = _captures[BoardState.Point.BLACK]
+	var w: int = _captures[BoardState.Point.WHITE]
+	if _game_over:
+		var winner := "Black" if b >= WIN_CAPTURES else "White"
+		status_label.text = "%s wins! (提3子)  Black %d · White %d   —   press R to restart" % [winner, b, w]
+	else:
+		var turn := "Black" if _current_color == BoardState.Point.BLACK else "White"
+		status_label.text = "Turn: %s   ·   Captures — Black %d / White %d" % [turn, b, w]
+
+func _reset() -> void:
+	for key in _stone_sprites.keys():
+		_stone_sprites[key].queue_free()
+	_stone_sprites.clear()
+	_state = BoardState.empty()
+	_prev_state = null
+	_current_color = BoardState.Point.BLACK
+	_captures = {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
+	_game_over = false
+	_update_status()
 
 func _add_stone_sprite(x: int, y: int, color: int) -> void:
 	var sprite := Sprite2D.new()

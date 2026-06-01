@@ -12,3 +12,13 @@ script = ExtResource("1_board")
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(144, 144)
 zoom = Vector2(2, 2)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="StatusLabel" type="Label" parent="HUD"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 568.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 18
+text = "You: Black  ·  Captures — Black 0 / White 0"
