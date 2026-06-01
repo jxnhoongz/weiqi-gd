@@ -44,8 +44,11 @@ const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
 var _texture: Texture2D
 var _state: BoardState
 var _current_color: int = BoardState.Point.BLACK
+# The board position just before the last applied move — what a ko (打劫)
+# recapture would illegally recreate. Null until the first move is made.
+var _prev_state: BoardState = null
 # Maps a grid coord (Vector2i) to its placed Sprite2D, so stones can be
-# removed later when capture is implemented.
+# removed when they are captured.
 var _stone_sprites: Dictionary = {}
 
 func _ready() -> void:
@@ -103,11 +106,15 @@ func _try_place(x: int, y: int) -> void:
 		return
 	if not _state.is_empty(x, y):
 		return
-	var result := GoRules.place(_state, x, y, _current_color)
+	var result := GoRules.place(_state, x, y, _current_color, _prev_state)
+	if not result["ok"]:
+		return  # illegal (suicide or ko) — ignore the click
+	var position_before_move := _state
 	_state = result["state"]
 	_add_stone_sprite(x, y, _current_color)
 	for captured in result["captured"]:
 		_remove_stone_sprite(captured.x, captured.y)
+	_prev_state = position_before_move
 	_current_color = BoardState.Point.WHITE if _current_color == BoardState.Point.BLACK else BoardState.Point.BLACK
 
 func _add_stone_sprite(x: int, y: int, color: int) -> void:
