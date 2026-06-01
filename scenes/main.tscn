@@ -3,30 +3,31 @@
 [ext_resource type="Script" uid="uid://cbfy476bsln4l" path="res://scripts/view/board_renderer.gd" id="1_board"]
 
 [node name="Board" type="Node2D"]
+position = Vector2(0, 52)
+scale = Vector2(2, 2)
 script = ExtResource("1_board")
 
 [node name="BoardLayer" type="TileMapLayer" parent="."]
 
 [node name="Stones" type="Node2D" parent="."]
 
-[node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(144, 144)
-zoom = Vector2(2, 2)
-
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="UIRoot" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
 [node name="TopBar" type="PanelContainer" parent="HUD/UIRoot"]
-anchors_preset = 10
+layout_mode = 0
 anchor_right = 1.0
-offset_bottom = 44.0
+offset_bottom = 52.0
 mouse_filter = 2
 
 [node name="Margin" type="MarginContainer" parent="HUD/UIRoot/TopBar"]
+layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 6
@@ -34,41 +35,47 @@ theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 6
 
 [node name="Row" type="HBoxContainer" parent="HUD/UIRoot/TopBar/Margin"]
+layout_mode = 2
 mouse_filter = 2
 
 [node name="BlackLabel" type="Label" parent="HUD/UIRoot/TopBar/Margin/Row"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "Black  0 / 3"
 
 [node name="SpacerL" type="Control" parent="HUD/UIRoot/TopBar/Margin/Row"]
-mouse_filter = 2
+layout_mode = 2
 size_flags_horizontal = 3
+mouse_filter = 2
 
 [node name="TurnLabel" type="Label" parent="HUD/UIRoot/TopBar/Margin/Row"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "Black to move"
 
 [node name="SpacerR" type="Control" parent="HUD/UIRoot/TopBar/Margin/Row"]
-mouse_filter = 2
+layout_mode = 2
 size_flags_horizontal = 3
+mouse_filter = 2
 
 [node name="WhiteLabel" type="Label" parent="HUD/UIRoot/TopBar/Margin/Row"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "White  0 / 3"
 
 [node name="WinOverlay" type="CenterContainer" parent="HUD/UIRoot"]
 visible = false
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
 [node name="WinPanel" type="PanelContainer" parent="HUD/UIRoot/WinOverlay"]
+layout_mode = 2
 mouse_filter = 2
 
 [node name="WinMargin" type="MarginContainer" parent="HUD/UIRoot/WinOverlay/WinPanel"]
+layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 28
 theme_override_constants/margin_top = 22
@@ -76,37 +83,43 @@ theme_override_constants/margin_right = 28
 theme_override_constants/margin_bottom = 22
 
 [node name="WinBox" type="VBoxContainer" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin"]
+layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 alignment = 1
 
 [node name="ResultLabel" type="Label" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Black wins!"
 horizontal_alignment = 1
 
 [node name="ScoreLabel" type="Label" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "Black 3 · White 0"
 horizontal_alignment = 1
 
 [node name="RestartButton" type="Button" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
+layout_mode = 2
 text = "Play again"
 
 [node name="MenuButton" type="Button" parent="HUD/UIRoot/WinOverlay/WinPanel/WinMargin/WinBox"]
+layout_mode = 2
 text = "Main menu"
 
 [node name="MenuOverlay" type="CenterContainer" parent="HUD/UIRoot"]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
 [node name="MenuPanel" type="PanelContainer" parent="HUD/UIRoot/MenuOverlay"]
+layout_mode = 2
 mouse_filter = 2
 
 [node name="MenuMargin" type="MarginContainer" parent="HUD/UIRoot/MenuOverlay/MenuPanel"]
+layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 36
 theme_override_constants/margin_top = 28
@@ -114,24 +127,27 @@ theme_override_constants/margin_right = 36
 theme_override_constants/margin_bottom = 28
 
 [node name="MenuBox" type="VBoxContainer" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin"]
+layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 alignment = 1
 
 [node name="TitleLabel" type="Label" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Mini Go"
 horizontal_alignment = 1
 
 [node name="SubLabel" type="Label" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
-mouse_filter = 2
+layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "first to capture 3 stones wins"
 horizontal_alignment = 1
 
 [node name="PlayAiButton" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+layout_mode = 2
 text = "Play vs AI"
 
 [node name="PlayPvpButton" type="Button" parent="HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox"]
+layout_mode = 2
 text = "Play vs Player"

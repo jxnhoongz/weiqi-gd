@@ -8,3 +8,6 @@
 # GUT test framework (dev dependency, Godot 4.4 needs v9.4.0):
 #   git clone --depth 1 --branch v9.4.0 https://github.com/bitwes/Gut.git /tmp/gut && cp -r /tmp/gut/addons/gut addons/gut
 /addons/gut/
+
+# macOS
+.DS_Store

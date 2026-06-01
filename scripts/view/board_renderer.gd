@@ -43,6 +43,7 @@ const STAR_POINTS: Array[Vector2i] = [
 ]
 
 const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
+const SNAP_SFX_PATH := "res://assets/audio/snap.mp3"
 
 @onready var board_layer: TileMapLayer = $BoardLayer
 @onready var stones: Node2D = $Stones
@@ -63,6 +64,7 @@ const BOARD_TEXTURE_PATH := "res://assets/themes/kaya/go-board.png"
 @onready var play_pvp_button: Button = $HUD/UIRoot/MenuOverlay/MenuPanel/MenuMargin/MenuBox/PlayPvpButton
 
 var _texture: Texture2D
+var _snap_player: AudioStreamPlayer  # plays the "snap" sfx on stone placement
 var _state: BoardState
 var _current_color: int = BoardState.Point.BLACK
 var _mode: int = Mode.NONE
@@ -81,7 +83,13 @@ func _ready() -> void:
 		return
 	board_layer.tile_set = TilesetBuilder.build(_texture)
 	_paint_board()
+	# Audio: a non-positional player for the stone-placement "snap".
+	_snap_player = AudioStreamPlayer.new()
+	_snap_player.stream = load(SNAP_SFX_PATH)
+	add_child(_snap_player)
 	ui_root.theme = _build_ui_theme()
+	# Gold accent for the turn indicator (overrides the cream Label colour).
+	turn_label.add_theme_color_override("font_color", Color(0.91, 0.75, 0.49))
 	# Wire the buttons' `pressed` signals to handler functions.
 	play_ai_button.pressed.connect(func() -> void: _start_game(Mode.VS_AI))
 	play_pvp_button.pressed.connect(func() -> void: _start_game(Mode.VS_PLAYER))
@@ -247,17 +255,50 @@ func _add_stone_sprite(x: int, y: int, color: int) -> void:
 	atlas.atlas = _texture
 	atlas.region = stone_region(color)
 	sprite.texture = atlas
-	sprite.scale = Vector2(STONE_SCALE, STONE_SCALE)
 	# Centre the stone on the intersection (tile centre = x*32 + 16).
 	sprite.position = Vector2(x * TILE_PX + TILE_PX / 2.0, y * TILE_PX + TILE_PX / 2.0)
+	# JUICE: start tiny and bounce up to size. TRANS_BACK overshoots past the
+	# target then settles back — that "plonk" feel from the Juice Lab.
+	sprite.scale = Vector2.ZERO
 	stones.add_child(sprite)
 	_stone_sprites[Vector2i(x, y)] = sprite
+	var target := Vector2(STONE_SCALE, STONE_SCALE)
+	var tw := create_tween()
+	tw.tween_property(sprite, "scale", target, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if _snap_player and _snap_player.stream:
+		_snap_player.play()
 
 func _remove_stone_sprite(x: int, y: int) -> void:
 	var key := Vector2i(x, y)
-	if _stone_sprites.has(key):
-		_stone_sprites[key].queue_free()
-		_stone_sprites.erase(key)
+	if not _stone_sprites.has(key):
+		return
+	var sprite: Sprite2D = _stone_sprites[key]
+	_stone_sprites.erase(key)
+	# JUICE: pop (scale up) + fade out, with a little particle burst, instead of
+	# vanishing instantly. Colour the bits to match the captured stone.
+	var is_black := (sprite.texture as AtlasTexture).region == STONE_REGION_BLACK
+	_capture_burst(sprite.position, Color(0.1, 0.1, 0.1) if is_black else Color(0.95, 0.93, 0.86))
+	var tw := create_tween()
+	tw.tween_property(sprite, "modulate:a", 0.0, 0.18)
+	tw.parallel().tween_property(sprite, "scale", sprite.scale * 1.4, 0.18)
+	tw.tween_callback(sprite.queue_free)
+
+## Flings a few small squares outward from `pos` (a capture "burst"). No art —
+## just Polygon2D squares tweened outward and faded, then freed.
+func _capture_burst(pos: Vector2, color: Color) -> void:
+	for i in 8:
+		var bit := Polygon2D.new()
+		bit.polygon = PackedVector2Array([Vector2(-2, -2), Vector2(2, -2), Vector2(2, 2), Vector2(-2, 2)])
+		bit.color = color
+		bit.position = pos
+		stones.add_child(bit)
+		var angle := TAU * i / 8.0
+		var dist := 16.0 + randf() * 12.0
+		var dest := pos + Vector2(cos(angle), sin(angle)) * dist
+		var tw := create_tween()
+		tw.tween_property(bit, "position", dest, 0.3).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(bit, "modulate:a", 0.0, 0.3)
+		tw.tween_callback(bit.queue_free)
 
 # --- UI theme (flat, code-built — no art) ----------------------------------
 
@@ -267,11 +308,12 @@ func _build_ui_theme() -> Theme:
 	var t := Theme.new()
 	t.set_default_font_size(16)
 
-	var bg := Color(0.16, 0.15, 0.21)
-	var accent := Color(0.79, 0.63, 0.39)
+	# Warm-wood palette pulled from the board (kaya) so the UI feels part of the game.
+	var bg := Color(0.227, 0.173, 0.110)        # #3a2c1c deep wood brown
+	var accent := Color(0.79, 0.63, 0.39)       # kaya gold (buttons)
 	var accent_hover := Color(0.86, 0.71, 0.47)
 	var accent_pressed := Color(0.69, 0.54, 0.33)
-	var text := Color(0.93, 0.91, 0.85)
+	var text := Color(0.937, 0.886, 0.776)      # #efe2c6 cream
 	var dark_text := Color(0.14, 0.10, 0.05)
 
 	var panel := StyleBoxFlat.new()
