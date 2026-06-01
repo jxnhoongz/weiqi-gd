@@ -203,7 +203,8 @@ View/UI verified by running the game via godot-mcp and observing behavior.
 1. **M1 — It's alive:** ✅ **DONE (2026-06-01)** — project setup (texture filter, TileSet from
    `go-board.png`), board renders in Kaya, click places alternating stones (no rules yet).
    `BoardState` + `TilesetBuilder` unit-tested (6/6 GUT). Render/run loop confirmed end-to-end.
-2. **M2 — Capture:** liberties + group capture in `GroupAnalysis` / `GoRules`. TDD'd.
+2. **M2 — Capture:** ✅ **DONE (2026-06-01)** — liberties + group capture in `GroupAnalysis` /
+   `GoRules` (22/22 GUT), wired into the renderer (captured stones disappear).
 3. **M3 — Legality:** ko + suicide prevention.
 4. **M4 — Endgame:** pass → two-pass end → dead-stone marking → area scoring + komi → winner display.
 5. **M5 — Polish:** ghost-stone preview, prisoner-count HUD, result screen. (Theme switcher deferred
