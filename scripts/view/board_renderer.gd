@@ -18,6 +18,10 @@ const STONE_SCALE := 1.5
 ## Custom win condition for the 9x9 game: first to capture this many stones wins (提3子).
 const WIN_CAPTURES := 3
 
+## The human plays Black (moves first); the AI plays White.
+const HUMAN_COLOR := BoardState.Point.BLACK
+const AI_COLOR := BoardState.Point.WHITE
+
 # Board tile atlas coordinates (col, row) — see spec section 6.
 const TILE_TL := Vector2i(0, 0)
 const TILE_T := Vector2i(1, 0)
@@ -111,8 +115,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT:
+		if _current_color != HUMAN_COLOR:
+			return
 		var cell := board_layer.local_to_map(board_layer.get_local_mouse_position())
-		_apply_move(cell.x, cell.y, _current_color)
+		if _apply_move(cell.x, cell.y, HUMAN_COLOR) and not _game_over:
+			_ai_turn()
+
+## The AI (White) picks and plays its best move after the human moves.
+func _ai_turn() -> void:
+	if _game_over or _current_color != AI_COLOR:
+		return
+	var mv := SimpleAI.choose_move(_state, AI_COLOR, _prev_state)
+	if mv == SimpleAI.NO_MOVE:
+		return  # no legal move for the AI; rare on 9x9
+	_apply_move(mv.x, mv.y, AI_COLOR)
 
 ## Applies a move for `color` if legal. Returns true if a stone was placed.
 func _apply_move(x: int, y: int, color: int) -> bool:
