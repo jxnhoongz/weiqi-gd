@@ -7,7 +7,7 @@ script = ExtResource("1_board")
 
 [node name="BoardLayer" type="TileMapLayer" parent="."]
 
-[node name="StoneLayer" type="TileMapLayer" parent="."]
+[node name="Stones" type="Node2D" parent="."]
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(144, 144)
