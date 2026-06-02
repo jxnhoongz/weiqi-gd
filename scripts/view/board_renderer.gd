@@ -13,9 +13,6 @@ const STONE_SCALE := 1.5
 
 ## First player to capture this many stones wins on 9x9 (提3子).
 const WIN_CAPTURES := 3
-## 19x19 territory mode: MCTS iterations per AI move. Higher = stronger but slower;
-## the search runs on a background thread so the window stays responsive.
-const MCTS_TERR_ITERS := 250
 ## Pixels reserved at the top for the wood info strip.
 const STRIP_PX := 52
 ## Horizontal margin on each side of the board.
@@ -82,8 +79,6 @@ var _captures := {BoardState.Point.BLACK: 0, BoardState.Point.WHITE: 0}
 var _game_over := false
 # Maps a grid coord (Vector2i) to its placed Sprite2D.
 var _stone_sprites: Dictionary = {}
-# Background thread for the (slow) 19x19 MCTS search, so the UI doesn't freeze.
-var _ai_thread: Thread = null
 # Transient "Illegal move" message, created in code.
 var _toast: Label
 
@@ -244,49 +239,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			_flash_illegal(reason)
 
-## The AI (White) picks and plays its best move after the human moves.
+## The AI (White) evaluates every legal move (tactics) and plays the best one.
+## Used on BOTH sizes — fast enough to run instantly even on 19x19 (~100ms).
 func _ai_turn() -> void:
 	if _mode != Mode.VS_AI or _game_over or _current_color != AI_COLOR:
 		return
-	if _is_territory():
-		_start_mcts_search()  # heavy — runs on a background thread
-	else:
-		# 9x9: fast tactical heuristic for the capture race (instant).
-		var mv := HeuristicAI.choose_move(_state, AI_COLOR, _prev_state)
-		if mv != Vector2i(-1, -1):
-			_apply_move(mv.x, mv.y, AI_COLOR)
-
-## Runs the 19x19 MCTS search on a background Thread so the window stays
-## responsive (shows "AI thinking…"), then applies the move on the main thread.
-func _start_mcts_search() -> void:
-	if _ai_thread != null:
-		return  # a search is already running
-	turn_label.text = "AI thinking…"
-	# BoardState is immutable, so it's safe to read from the worker thread.
-	var snapshot := _state
-	var ko := _prev_state
-	var cb: int = _captures[BoardState.Point.BLACK]
-	var cw: int = _captures[BoardState.Point.WHITE]
-	_ai_thread = Thread.new()
-	_ai_thread.start(func() -> void:
-		var mv := MctsAI.choose_move(snapshot, AI_COLOR, cb, cw, ko, MCTS_TERR_ITERS, true)
-		call_deferred("_on_mcts_done", mv))
-
-func _on_mcts_done(mv: Vector2i) -> void:
-	if _ai_thread != null:
-		_ai_thread.wait_to_finish()
-		_ai_thread = null
-	# The game may have been reset/changed while the thread ran — re-check.
-	if _mode != Mode.VS_AI or _game_over or _current_color != AI_COLOR:
-		_update_status()
-		return
+	var mv := HeuristicAI.choose_move(_state, AI_COLOR, _prev_state)
 	if mv != Vector2i(-1, -1):
 		_apply_move(mv.x, mv.y, AI_COLOR)
-
-func _exit_tree() -> void:
-	if _ai_thread != null:
-		_ai_thread.wait_to_finish()
-		_ai_thread = null
 
 ## Applies a move for `color` if legal. Returns "" on success, otherwise a reason
 ## the move was rejected: "over" / "out" / "occupied" / "suicide" / "ko".
